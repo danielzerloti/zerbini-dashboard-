@@ -1181,7 +1181,7 @@ async function doLogin() {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  EXPORTAR XLSX
+//  EXPORTAR CSV (abre no Excel sem erros)
 // ═══════════════════════════════════════════════════════════════
 function exportarXLSX() {
   const mp = document.getElementById('d-marketplace').value;
@@ -1192,54 +1192,34 @@ function exportarXLSX() {
 
   if (!data.length) { showToast('Nenhum dado para exportar.', 'error'); return; }
 
-  // Build rows with all columns
   const headers = ['Data','Marketplace','Loja','Métrica','Valor','Meta','Status','Status Penalidade','Motivo'];
+
   const rows = data.map(d => {
     const meta = getMeta(d.marketplace, d.metrica);
     const ok = meta ? checkStatus(d.valor, meta) : null;
-    const statusTxt = ok === null ? '—' : ok ? 'OK' : 'Fora da meta';
+    const statusTxt = ok === null ? '' : ok ? 'OK' : 'Fora da meta';
     return [
-      d.data, d.marketplace, d.loja, d.metrica, d.valor,
-      meta ? meta.meta : '—', statusTxt,
-      d.penStatus || '—', d.penMotivo || '—'
+      d.data, d.marketplace, d.loja, d.metrica,
+      String(d.valor).replace('.',','),
+      meta ? String(meta.meta).replace('.',',') : '',
+      statusTxt,
+      d.penStatus || '', d.penMotivo || ''
     ];
   });
 
-  // Build XML SpreadsheetML (opens natively no Excel)
-  const xmlRows = [headers, ...rows].map(row =>
-    '<Row>' + row.map(cell => {
-      const isNum = typeof cell === 'number' || (!isNaN(parseFloat(cell)) && cell !== '—' && cell !== '' && typeof cell === 'number');
-      const type = isNum ? 'Number' : 'String';
-      const safe = String(cell).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      return `<Cell><Data ss:Type="${type}">${safe}</Data></Cell>`;
-    }).join('') + '</Row>'
-  ).join('');
+  // Escape cell: wrap in quotes if contains ; or "
+  const esc = v => {
+    const s = String(v ?? '');
+    return (s.includes(';') || s.includes('"') || s.includes('
+')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Styles>
-    <Style ss:ID="header">
-      <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>
-      <Interior ss:Color="#1A1D27" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-    </Style>
-    <Style ss:ID="ok">
-      <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
-      <Font ss:Color="#166534"/>
-    </Style>
-    <Style ss:ID="fora">
-      <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
-      <Font ss:Color="#991B1B"/>
-    </Style>
-  </Styles>
-  <Worksheet ss:Name="Métricas">
-    <Table>${xmlRows}</Table>
-  </Worksheet>
-</Workbook>`;
+  const csvLines = [headers, ...rows].map(row => row.map(esc).join(';')).join('
+');
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  // BOM UTF-8 para Excel reconhecer acentos
+  const bom = '﻿';
+  const blob = new Blob([bom + csvLines], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const hoje = new Date();
@@ -1247,7 +1227,7 @@ function exportarXLSX() {
   const mm = String(hoje.getMonth()+1).padStart(2,'0');
   const yyyy = hoje.getFullYear();
   a.href = url;
-  a.download = `metricas_${mp||'todos'}_${dd}-${mm}-${yyyy}.xlsx`;
+  a.download = `metricas_${mp||'todos'}_${dd}-${mm}-${yyyy}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Exportação concluída!', 'success');
