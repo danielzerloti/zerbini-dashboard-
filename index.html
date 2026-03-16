@@ -923,14 +923,15 @@ function renderDashboard() {
           plugins: {
             legend: { display: false },
             datalabels: {
-              anchor: 'end',
-              align: 'end',
-              offset: 2,
-              color: '#e8eaf6',
-              font: { family: 'Sora, sans-serif', size: 10, weight: '600' },
-              formatter: function(value) {
+              anchor: 'center',
+              align: 'center',
+              color: '#ffffff',
+              font: { family: 'Sora, sans-serif', size: 10, weight: '700' },
+              formatter: function(value, ctx) {
+                if (ctx.dataset.type === 'line') return '';
                 if (value === 0) return '';
-                return String(value).replace('.', ',');
+                var rounded = Math.round(value * 100) / 100;
+                return String(rounded).replace('.', ',');
               }
             }
           },
