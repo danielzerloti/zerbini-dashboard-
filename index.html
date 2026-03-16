@@ -1192,7 +1192,7 @@ function exportarXLSX() {
 
   if (!data.length) { showToast('Nenhum dado para exportar.', 'error'); return; }
 
-  const headers = ['Data','Marketplace','Loja','Métrica','Valor','Meta','Status','Status Penalidade','Motivo'];
+  const headers = ['Data','Marketplace','Loja','Metrica','Valor','Meta','Status','Status Penalidade','Motivo'];
 
   const rows = data.map(d => {
     const meta = getMeta(d.marketplace, d.metrica);
@@ -1207,32 +1207,35 @@ function exportarXLSX() {
     ];
   });
 
-  // Escape cell: wrap in quotes if contains ; or "
-  const esc = v => {
-    const s = String(v ?? '');
-    return (s.includes(';') || s.includes('"') || s.includes('
-')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  const esc = function(v) {
+    var s = String(v == null ? '' : v);
+    if (s.indexOf(';') >= 0 || s.indexOf('"') >= 0) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
   };
 
-  const csvLines = [headers, ...rows].map(row => row.map(esc).join(';')).join('
-');
+  var lines = [];
+  var allRows = [headers].concat(rows);
+  for (var i = 0; i < allRows.length; i++) {
+    lines.push(allRows[i].map(esc).join(';'));
+  }
+  var csvContent = lines.join('\r\n');
 
-  // BOM UTF-8 para Excel reconhecer acentos
-  const bom = '﻿';
-  const blob = new Blob([bom + csvLines], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const hoje = new Date();
-  const dd = String(hoje.getDate()).padStart(2,'0');
-  const mm = String(hoje.getMonth()+1).padStart(2,'0');
-  const yyyy = hoje.getFullYear();
+  var bom = '\uFEFF';
+  var blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var hoje = new Date();
+  var dd = String(hoje.getDate()).padStart(2,'0');
+  var mm = String(hoje.getMonth()+1).padStart(2,'0');
+  var yyyy = hoje.getFullYear();
   a.href = url;
-  a.download = `metricas_${mp||'todos'}_${dd}-${mm}-${yyyy}.csv`;
+  a.download = 'metricas_' + (mp||'todos') + '_' + dd + '-' + mm + '-' + yyyy + '.csv';
   a.click();
   URL.revokeObjectURL(url);
-  showToast('Exportação concluída!', 'success');
+  showToast('Exportacao concluida!', 'success');
 }
-
 function doLogout() {
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-page').style.display = 'flex';
