@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zerbini — Marketplace Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3347;
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e8eaf6;
+    --text2: #8b90a7;
+    --sidebar-w: 220px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w); min-height: 100vh; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; z-index: 100;
+  }
+  .brand { padding: 22px 20px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .brand-avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+  .brand-name { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .brand-sub { font-size: 11px; color: var(--text2); }
+  nav { flex: 1; padding: 12px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .15s; margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--accent); color: #fff; }
+  .nav-item svg { flex-shrink: 0; }
+  .sidebar-footer { padding: 14px 10px; border-top: 1px solid var(--border); }
+  .sidebar-footer .nav-item { color: #ef4444; }
+  .sidebar-footer .nav-item:hover { background: #ef444420; color: #ef4444; }
+
+  /* ── MAIN ── */
+  #main { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; }
+  .page { display: none; padding: 28px 30px; min-height: 100vh; }
+  .page.active { display: block; }
+
+  /* ── PAGE HEADER ── */
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+  /* ── FILTERS ── */
+  .filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 24px; }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; }
+  .filter-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
+  select, input[type="date"], input[type="text"], input[type="password"], input[type="number"] {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px;
+    border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; transition: border-color .15s;
+    appearance: none; -webkit-appearance: none;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  select { cursor: pointer; padding-right: 28px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b90a7' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+
+  /* ── BTN ── */
+  .btn { padding: 8px 18px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5b52e0; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── CARDS ── */
+  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+  .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card-icon.red { background: #ef444420; }
+  .card-icon.blue { background: #3b82f620; }
+  .card-icon.green { background: #22c55e20; }
+  .card-icon.yellow { background: #f59e0b20; }
+  .card-icon.purple { background: #a78bfa20; }
+  .card-label { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 4px; }
+  .card-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── CHARTS GRID ── */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── TABLE ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--surface2); }
+  th { padding: 12px 16px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text2); border-bottom: 1px solid var(--border); }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge.green { background: #22c55e20; color: #22c55e; }
+  .badge.red { background: #ef444420; color: #ef4444; }
+
+  /* ── FORM ── */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; max-width: 560px; }
+  .form-title { font-size: 15px; font-weight: 700; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1/-1; }
+  label { font-size: 12px; font-weight: 600; color: var(--text2); }
+  .form-grid select, .form-grid input { width: 100%; }
+
+  /* ── LOGIN ── */
+  #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 40px; width: 360px; }
+  .login-logo { width: 48px; height: 48px; border-radius: 14px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; color: #fff; margin: 0 auto 20px; }
+  .login-title { text-align: center; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .login-sub { text-align: center; font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+  .login-group { margin-bottom: 14px; }
+  .login-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+  .login-group input { width: 100%; }
+  .login-btn { width: 100%; margin-top: 8px; padding: 11px; font-size: 14px; }
+  .login-error { color: var(--red); font-size: 12px; margin-top: 8px; text-align: center; display: none; }
+
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all .3s; pointer-events: none; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  /* ── SPINNER ── */
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── LOADING OVERLAY ── */
+  #loading { position: fixed; inset: 0; background: #0f111799; z-index: 500; display: flex; align-items: center; justify-content: center; display: none; }
+  #loading.show { display: flex; }
+
+  /* ── SETTINGS TABS ── */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; width: fit-content; }
+  .tab { padding: 7px 16px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text2); border: none; background: none; font-family: inherit; transition: all .15s; }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+
+  .section-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+  .empty-state { text-align: center; padding: 48px; color: var(--text2); font-size: 14px; }
+  .row-actions { display: flex; gap: 6px; }
+  .inline-edit input, .inline-edit select { padding: 4px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">Z</div>
+    <div class="login-title">Zerbini</div>
+    <div class="login-sub">Acesse o painel de métricas</div>
+    <div class="login-group">
+      <label>E-mail</label>
+      <input type="text" id="login-email" placeholder="seu@email.com" />
+    </div>
+    <div class="login-group">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <button class="btn btn-primary login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="login-error">E-mail ou senha incorretos.</div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading"><div class="spinner" style="width:36px;height:36px;border-width:3px"></div></div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- APP -->
+<div id="app" style="display:none;width:100%">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="brand">
+      <div class="brand-avatar">Z</div>
+      <div>
+        <div class="brand-name">Zerbini</div>
+        <div class="brand-sub">do Brasil</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-item active" onclick="showPage('dashboard',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" onclick="showPage('dados',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Dados
+      </button>
+      <button class="nav-item" onclick="showPage('incluir',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Incluir Métricas
+      </button>
+      <button class="nav-item" onclick="showPage('config',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
+        Configurações
+      </button>
+      <button class="nav-item" onclick="atualizarBase()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+        Atualizar Base
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="nav-item" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sair
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title" id="dash-title">Dashboard</div>
+        <div class="page-sub">Métricas das lojas</div>
+      </div>
+      <div class="filters">
+        <div class="filter-group">
+          <div class="filter-label">Marketplace</div>
+          <select id="f-marketplace" onchange="updateLojaFilter()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Data</div>
+          <select id="f-data"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Loja</div>
+          <select id="f-loja"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group" style="justify-content:flex-end">
+          <button class="btn btn-primary" onclick="renderDashboard()">Filtrar</button>
+        </div>
+      </div>
+      <div class="cards-row" id="dash-cards"></div>
+      <div class="charts-grid" id="dash-charts"></div>
+    </div>
+
+    <!-- DADOS -->
+    <div class="page" id="page-dados">
+      <div class="page-header">
+        <div class="page-title">Dados</div>
+        <div class="page-sub">Tabela completa de métricas</div>
+      </div>
+      <div class="filters">
+        <div class="filter-group">
+          <div class="filter-label">Marketplace</div>
+          <select id="d-marketplace"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Loja</div>
+          <select id="d-loja"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group" style="justify-content:flex-end">
+          <button class="btn btn-primary" onclick="renderDados()">Filtrar</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th><th>Marketplace</th><th>Loja</th><th>Métrica</th>
+              <th>Valor</th><th>Meta</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dados-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INCLUIR MÉTRICAS -->
+    <div class="page" id="page-incluir">
+      <div class="page-header">
+        <div class="page-title">Incluir Métricas</div>
+        <div class="page-sub">Adicione novos registros na planilha</div>
+      </div>
+      <div class="form-card">
+        <div class="form-title">Novo Registro</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Data</label>
+            <input type="date" id="inc-data" />
+          </div>
+          <div class="form-group">
+            <label>Marketplace</label>
+            <select id="inc-marketplace" onchange="updateIncLojas()"><option value="">Selecione</option></select>
+          </div>
+          <div class="form-group">
+            <label>Loja</label>
+            <select id="inc-loja"><option value="">Selecione</option></select>
+          </div>
+          <div class="form-group">
+            <label>Métrica</label>
+            <select id="inc-metrica"><option value="">Selecione</option></select>
+          </div>
+          <div class="form-group full">
+            <label>Valor</label>
+            <input type="number" id="inc-valor" step="0.01" placeholder="Ex: 2.5" />
+          </div>
+        </div>
+        <button class="btn btn-success" style="margin-top:18px;width:100%" onclick="salvarMetrica()">Salvar no Google Sheets</button>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div class="page" id="page-config">
+      <div class="page-header">
+        <div class="page-title">Configurações</div>
+        <div class="page-sub">Gerencie lojas, marketplaces e metas</div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('metas',this)">Metas</button>
+        <button class="tab" onclick="showTab('lojas',this)">Lojas</button>
+        <button class="tab" onclick="showTab('marketplaces',this)">Marketplaces</button>
+        <button class="tab" onclick="showTab('usuarios',this)">Usuários</button>
+      </div>
+
+      <!-- METAS -->
+      <div class="tab-panel active" id="panel-metas">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">Metas por Marketplace</div>
+          <button class="btn btn-primary btn-sm" onclick="addMetaRow()">+ Adicionar Meta</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Marketplace</th><th>Métrica</th><th>Meta</th><th>Comparação</th><th>Ações</th></tr></thead>
+            <tbody id="metas-tbody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" style="margin-top:14px" onclick="salvarMetas()">Salvar Metas</button>
+      </div>
+
+      <!-- LOJAS -->
+      <div class="tab-panel" id="panel-lojas">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">Cadastro de Lojas</div>
+          <button class="btn btn-primary btn-sm" onclick="addLojaRow()">+ Adicionar Loja</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Marketplace</th><th>Nome da Loja</th><th>Ações</th></tr></thead>
+            <tbody id="lojas-tbody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" style="margin-top:14px" onclick="salvarLojas()">Salvar Lojas</button>
+      </div>
+
+      <!-- MARKETPLACES -->
+      <div class="tab-panel" id="panel-marketplaces">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">Marketplaces</div>
+          <button class="btn btn-primary btn-sm" onclick="addMarketplace()">+ Adicionar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Marketplace</th><th>Ações</th></tr></thead>
+            <tbody id="mp-tbody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" style="margin-top:14px" onclick="salvarMarketplaces()">Salvar</button>
+      </div>
+
+      <!-- USUÁRIOS -->
+      <div class="tab-panel" id="panel-usuarios">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-title" style="margin:0">Usuários</div>
+          <button class="btn btn-primary btn-sm" onclick="addUsuario()">+ Adicionar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>E-mail</th><th>Senha</th><th>Ações</th></tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" style="margin-top:14px" onclick="salvarUsuarios()">Salvar</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════
+const SHEET_ID = '113K6V38UsyZQ_2fDr52j-Hq1x1QYQXn_ZjVCP_E9JNc';
+const CREDS = {
+  "type":"service_account","project_id":"reputacao",
+  "private_key_id":"2b484e6310ad4c53fef7b86762c31b8e80dfc17f",
+  "private_key":"-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC6PawzUbgSQRgO\nvCjWV8NgKq+x6VNK2rPSbcTAwLTa3MKvUCMgV0GKCTDtjJJnciW0PKMnG84HipXB\nim5XhAcwsSnJ4kSSqvo6PCCZzGY+R+4I8mDQQjgu29W13R4lrsEncRa7/NAvMVCq\nV7VmqurCA2/fA8I9aDwtXdqZqvrEpD+4SVK3k7bhDB4dFM2FoUyyTITAFTaj/OU6\nuTawaTF/OvTjn+sGmap902J1bqJ9nJr+NTIqQmG65aiv0ccsto05D+nutW33JRlc\nq4jPtctp2OXq016Hz1His1CqPqzlpxfca6qhZ95gHZf0uUIPhnjYSJiGHwvslM30\nI65gwcqLAgMBAAECggEAEtYvBwfCYtJDoSXlyXwZ7i2TFJ8BRiZlnqhsiIRVJnfC\nlyG3U8uPfOseEECyBBV2+8pQRCHbTkb1i5w5Oc/IPGQG0nz4q47wfRhcwcF7K9xx\nlmURZq7z6MViUaEaLfyFW7xj7MKOud82hewWFFrAILxhQcCrEjPrNjlyZS12bJH1\n4OdgrEXnjejxdvclDMdJpQ5rwFiBPevlGtEPOjAFlUaMfeKwLFFmwSzMNqpj4XYY\nrOp1/cUZgxlyUiJefSDxqwUreg+XeNCgUN5Iyfl5ta43oOphm5UfmLMkQoIbytVA\nKHKoMVPMQhqI9eGHN7i+OVPbaNdM0SXcBuFzGmtW2QKBgQDwrJc/GuMnYHagL+fZ\nh78Li47EqjNXnSoONuwsgSosxRNIhWlDvDD71ewCT+mrRqXXPvdvTr5yyHiEizhr\nNI2+LR1/vHcC5NcOTPqMPsAb+QebLbAFYI1YY/kdV2OUz0+TMwtBpYnAg4h3Cxgl\noUVM0lZqu3SVED/m/gr2s14VQwKBgQDGGbl4NtfEhFSOK5BTGWNoDH7h8iXcOr6Q\nFDpV+AwHNO0m6lLr/1OclAf+0qJuilQWVnnqyGT3ucBfbFmIevPPJQSux0evoKiQ\n5yeV/3a7ClHoWK8n38y7ujbGQHoun/xfbFfUre481u66IDOO+KKxPncBy2kwQ2eR\nmXIHiBB9GQKBgGmSi9X2qWYAfojN+toFHdymnz3Nmy/3lRcfKIJtNl7lJAxP2VkJ\nGEOgFyL8gvfKybydtlRxKkGXhqY9m8YLC5I8oBAEUABI+b0gL1eNvx+GIbwEUo5J\nSDdZw1EHoHsKZVGgtnNZdg+ooxf1GeaH06pbKeUvzXgF5MIi9hQ5oi+ZAoGAPqe0\nOYlfBRC1jaHJq/7Dqg0JtHzZ7KXHz9oV+UrSwxTCTSSfxXSkBUnsnXQRW9T0c3w2\nY0Oua4uchJHIX5pDsqiKqpzs12eA6ROzOYXrD41cCpjCDWKDZnynBl0uR8DiGWwy\n+1lnmGaCauv0YqvRCS4whajIRDONdkeKAUfPr0ECgYEA2kg6vs7VM9jaFT4kpmq7\niB4MBc+2wK564Xo9IQJiuB19ZXDXmDMZKNnyTxmeXi+x5b/d321ZxtUZiDDCLFdM\nj8vy/BZz5z3Een0XzKVD/wkthbCH8JgugXW0CERnGV6pzf6yPX5o3M67KytQnMeG\n3uxxyDJCh3U7qQ6OYleb7GA=\n-----END PRIVATE KEY-----\n",
+  "client_email":"zerbini@reputacao.iam.gserviceaccount.com",
+  "client_id":"102157916534837421632",
+  "auth_uri":"https://accounts.google.com/o/oauth2/auth",
+  "token_uri":"https://oauth2.googleapis.com/token"
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let DB = { metricas: [], metas: [], lojas: [], usuarios: [] };
+let accessToken = null;
+let tokenExpiry = 0;
+let chartInstances = {};
+
+// ═══════════════════════════════════════════════════════════════
+//  GOOGLE SHEETS AUTH (JWT / Service Account)
+// ═══════════════════════════════════════════════════════════════
+async function getAccessToken() {
+  if (accessToken && Date.now() < tokenExpiry - 60000) return accessToken;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const claim = {
+      iss: CREDS.client_email,
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now, exp: now + 3600
+    };
+    const b64 = s => btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    const unsigned = b64(header) + '.' + b64(claim);
+    const sig = await signRS256(unsigned, CREDS.private_key);
+    const jwt = unsigned + '.' + sig;
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+    });
+    const data = await resp.json();
+    accessToken = data.access_token;
+    tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+    return accessToken;
+  } catch(e) { console.error('Token error', e); throw e; }
+}
+
+async function signRS256(msg, pemKey) {
+  const pemBody = pemKey.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+  const binaryKey = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey('pkcs8', binaryKey.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const enc = new TextEncoder();
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, enc.encode(msg));
+  return btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function sheetsGet(range) {
+  const tok = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } });
+  const d = await r.json();
+  return d.values || [];
+}
+
+async function sheetsSet(range, values) {
+  const tok = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  await fetch(url, {
+    method: 'PUT', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ range, majorDimension: 'ROWS', values })
+  });
+}
+
+async function sheetsAppend(range, values) {
+  const tok = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  await fetch(url, {
+    method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ range, majorDimension: 'ROWS', values })
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT SHEETS (creates headers if empty)
+// ═══════════════════════════════════════════════════════════════
+async function initSheets() {
+  // Check if sheets exist with headers
+  try {
+    const m = await sheetsGet('metricas!A1:E1');
+    if (!m.length) await sheetsSet('metricas!A1:E1', [['data','marketplace','loja','metrica','valor']]);
+    const g = await sheetsGet('metas!A1:D1');
+    if (!g.length) await sheetsSet('metas!A1:D1', [['marketplace','metrica','meta','tipo_comparacao']]);
+    const l = await sheetsGet('lojas!A1:B1');
+    if (!l.length) {
+      const lojaRows = [['marketplace','nome_loja']];
+      DEFAULT_LOJAS.forEach(([mp,loja]) => lojaRows.push([mp,loja]));
+      await sheetsSet('lojas!A1', lojaRows);
+    }
+    const u = await sheetsGet('usuarios!A1:B1');
+    if (!u.length) await sheetsSet('usuarios!A1:B2', [['email','senha'],['admin@zerbini.com','admin123']]);
+    const mp = await sheetsGet('marketplaces!A1:A1');
+    if (!mp.length) {
+      const mpRows = [['marketplace']].concat(DEFAULT_MARKETPLACES.map(m=>([m])));
+      await sheetsSet('marketplaces!A1', mpRows);
+    }
+    // Seed default metas if empty
+    const metasData = await sheetsGet('metas!A2:D');
+    if (!metasData.length) {
+      const metaRows = [];
+      Object.entries(DEFAULT_METAS).forEach(([mp, metrics]) => {
+        Object.entries(metrics).forEach(([metrica, {meta, tipo}]) => {
+          metaRows.push([mp, metrica, meta, tipo]);
+        });
+      });
+      if (metaRows.length) await sheetsAppend('metas!A:D', metaRows);
+    }
+  } catch(e) { console.warn('initSheets error', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LOAD DATA
+// ═══════════════════════════════════════════════════════════════
+async function loadAll() {
+  showLoading(true);
+  try {
+    await initSheets();
+    const [mRows, gRows, lRows, uRows, mpRows] = await Promise.all([
+      sheetsGet('metricas!A2:E'),
+      sheetsGet('metas!A2:D'),
+      sheetsGet('lojas!A2:B'),
+      sheetsGet('usuarios!A2:B'),
+      sheetsGet('marketplaces!A2:A')
+    ]);
+    DB.metricas = mRows.map(r => ({ data: r[0]||'', marketplace: r[1]||'', loja: r[2]||'', metrica: r[3]||'', valor: parseFloat(r[4])||0 }));
+    DB.metas = gRows.map(r => ({ marketplace: r[0]||'', metrica: r[1]||'', meta: parseFloat(r[2])||0, tipo: r[3]||'<' }));
+    DB.lojas = lRows.map(r => ({ marketplace: r[0]||'', nome: r[1]||'' }));
+    DB.usuarios = uRows.map(r => ({ email: r[0]||'', senha: r[1]||'' }));
+    DB.marketplaces = mpRows.map(r => r[0]).filter(Boolean);
+    if (!DB.marketplaces.length) DB.marketplaces = DEFAULT_MARKETPLACES;
+    populateFilters();
+  } catch(e) { showToast('Erro ao carregar dados: ' + e.message, 'error'); }
+  showLoading(false);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DEFAULTS
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_MARKETPLACES = ['Shopee','TikTok','Amazon','Mercado Livre','Magazine Luiza','Via Varejo','Pague Menos','Fast Shop','Shein'];
+const DEFAULT_LOJAS = [
+  ['Shopee','SAGE\'S'],['Shopee','P&G'],['Shopee','COLPAL'],['Shopee','UNILEVER'],['Shopee','TENA'],
+  ['Shopee','KENVUE'],['Shopee','SCJ'],['Shopee','SOFTYS'],['Shopee','BIGFRAL'],['Shopee','POM POM'],
+  ['Shopee','PAMPERS'],['Shopee','TUPPERWARE'],['Shopee','PANTENE'],['Shopee','DOWNY'],['Shopee','GILLETTE'],['Shopee','LIBRESSE'],
+  ['TikTok','Dove'],['TikTok','Sages'],['TikTok','Neutrogena'],['TikTok','Rexona'],['TikTok','Tresemmé'],
+  ['TikTok','Listerine'],['TikTok','Colgate'],['TikTok','Liquid Iv'],['TikTok','Pantene'],['TikTok','Comfort'],
+  ['TikTok','Omo'],['TikTok','Cif'],['TikTok','Pato'],['TikTok','Off'],['TikTok','Pampers'],
+  ['TikTok','Glade'],['TikTok','Libresse'],['TikTok','Lysoform'],['TikTok','Gillette'],['TikTok','Oral-B'],
+  ['TikTok','Always'],['TikTok','Eucerin'],['TikTok','Nivea'],['TikTok','Tupperware'],['TikTok','Venus'],
+  ['TikTok','Raid'],['TikTok','Baygon'],['TikTok','Neve'],['TikTok','Downy'],['TikTok','HS'],
+  ['TikTok','Secret'],['TikTok','Old Spice'],['TikTok','Cleanipedia'],['TikTok','Seda'],
+  ['Amazon','Amazon Loja'],['Mercado Livre','ML Loja'],
+  ['Magazine Luiza','Sages'],['Magazine Luiza','Tupperware'],
+  ['Fast Shop','Fast Shop Loja'],['Shein','Shein Loja'],
+  ['Pague Menos','PM Loja'],['Via Varejo','VV Loja']
+];
+const DEFAULT_METAS = {
+  'Shopee': {
+    'Não Cumprimento': {meta:8, tipo:'<'},
+    'Envio Atrasado': {meta:5, tipo:'<'},
+    'Preparação': {meta:1, tipo:'<'},
+    'Avaliação': {meta:5, tipo:'='},
+    'Penalidades': {meta:0, tipo:'='}
+  },
+  'TikTok': {
+    'Envios com Atraso': {meta:8, tipo:'<'},
+    'Cancelamentos': {meta:5, tipo:'<'},
+    'Taxa de Resposta': {meta:70, tipo:'>'},
+    'Violações': {meta:0, tipo:'='}
+  },
+  'Amazon': {
+    'Índice Envios Tardios': {meta:4, tipo:'<'},
+    'Taxa Cancelamento': {meta:2.5, tipo:'<'},
+    'Índice Pedidos Problemas': {meta:1, tipo:'<'}
+  },
+  'Mercado Livre': {
+    'Reclamações': {meta:1, tipo:'<'},
+    'Mediações': {meta:0.5, tipo:'<'},
+    'Cancelamentos': {meta:0.5, tipo:'<'},
+    'Despachos Atrasados': {meta:6, tipo:'<'}
+  },
+  'Magazine Luiza': {
+    'Nível de Serviço': {meta:97, tipo:'>'},
+    'Cancelamentos': {meta:2, tipo:'<'},
+    'Nota': {meta:5, tipo:'='}
+  },
+  'Via Varejo': {
+    'Expedição Atrasada': {meta:5, tipo:'<'},
+    'Reclamações': {meta:2, tipo:'<'},
+    'Cancelamento': {meta:3, tipo:'<'},
+    'Nota': {meta:5, tipo:'='}
+  },
+  'Pague Menos': {
+    'Pedidos Atrasados': {meta:5, tipo:'='},
+    'Pedidos Cancelados': {meta:5, tipo:'='},
+    'Pedidos Devolvidos': {meta:5, tipo:'='},
+    'Nota Geral': {meta:5, tipo:'='}
+  },
+  'Fast Shop': {
+    'Pedidos Atrasados': {meta:5, tipo:'='},
+    'Pedidos Cancelados': {meta:5, tipo:'='},
+    'Atraso de Entrega': {meta:5, tipo:'='},
+    'Nota Geral': {meta:5, tipo:'='}
+  },
+  'Shein': {
+    'Taxa de Coleta': {meta:100, tipo:'='}
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+function showLoading(v) { document.getElementById('loading').classList.toggle('show', v); }
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'dados') renderDados();
+  if (id === 'config') renderConfigTabs();
+  if (id === 'incluir') populateIncluirForm();
+}
+
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function getMeta(marketplace, metrica) {
+  return DB.metas.find(m => m.marketplace === marketplace && m.metrica === metrica);
+}
+
+function checkStatus(valor, meta) {
+  if (!meta) return null;
+  if (meta.tipo === '<') return valor < meta.meta;
+  if (meta.tipo === '>') return valor > meta.meta;
+  if (meta.tipo === '=') return valor == meta.meta;
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POPULATE FILTERS
+// ═══════════════════════════════════════════════════════════════
+function populateFilters() {
+  const mps = DB.marketplaces.length ? DB.marketplaces : [...new Set(DB.metricas.map(m=>m.marketplace))];
+  const dates = [...new Set(DB.metricas.map(m=>m.data))].sort().reverse();
+
+  ['f-marketplace','d-marketplace'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">Todos</option>';
+    mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
+  });
+  ['inc-marketplace'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">Selecione</option>';
+    mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
+  });
+
+  const fd = document.getElementById('f-data');
+  fd.innerHTML = '<option value="">Todas</option>';
+  dates.forEach(d => fd.innerHTML += `<option>${d}</option>`);
+
+  updateLojaFilter();
+  updateDadosLoja();
+}
+
+function updateLojaFilter() {
+  const mp = document.getElementById('f-marketplace').value;
+  const lojas = mp ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
+                   : [...new Set(DB.lojas.map(l=>l.nome))];
+  const sel = document.getElementById('f-loja');
+  sel.innerHTML = '<option value="">Todas</option>';
+  lojas.forEach(l => sel.innerHTML += `<option>${l}</option>`);
+}
+
+function updateDadosLoja() {
+  const mp = document.getElementById('d-marketplace').value;
+  const lojas = mp ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
+                   : [...new Set(DB.lojas.map(l=>l.nome))];
+  const sel = document.getElementById('d-loja');
+  sel.innerHTML = '<option value="">Todas</option>';
+  lojas.forEach(l => sel.innerHTML += `<option>${l}</option>`);
+}
+
+function updateIncLojas() {
+  const mp = document.getElementById('inc-marketplace').value;
+  const lojas = DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome);
+  const sel = document.getElementById('inc-loja');
+  sel.innerHTML = '<option value="">Selecione</option>';
+  lojas.forEach(l => sel.innerHTML += `<option>${l}</option>`);
+  // update metrics
+  const mets = [...new Set(DB.metas.filter(m=>m.marketplace===mp).map(m=>m.metrica))];
+  const msel = document.getElementById('inc-metrica');
+  msel.innerHTML = '<option value="">Selecione</option>';
+  mets.forEach(m => msel.innerHTML += `<option>${m}</option>`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const mp = document.getElementById('f-marketplace').value;
+  const dt = document.getElementById('f-data').value;
+  const lj = document.getElementById('f-loja').value;
+  const title = document.getElementById('dash-title');
+  title.textContent = mp ? `Dashboard ${mp}` : 'Dashboard';
+
+  let data = DB.metricas;
+  if (mp) data = data.filter(d => d.marketplace === mp);
+  if (dt) data = data.filter(d => d.data === dt);
+  if (lj) data = data.filter(d => d.loja === lj);
+
+  // Cards — averages per metric
+  const metrics = [...new Set(data.map(d=>d.metrica))];
+  const cardsEl = document.getElementById('dash-cards');
+  cardsEl.innerHTML = '';
+
+  if (!data.length) {
+    cardsEl.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Nenhum dado encontrado. Adicione métricas ou ajuste os filtros.</div>';
+    document.getElementById('dash-charts').innerHTML = '';
+    return;
+  }
+
+  const cardIcons = ['red','blue','green','yellow','purple'];
+  const cardSvgs = [
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>`
+  ];
+  metrics.slice(0,5).forEach((met,i) => {
+    const vals = data.filter(d=>d.metrica===met).map(d=>d.valor);
+    const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+    cardsEl.innerHTML += `
+      <div class="card">
+        <div class="card-icon ${cardIcons[i%5]}">${cardSvgs[i%5]}</div>
+        <div>
+          <div class="card-label">Média de ${met}</div>
+          <div class="card-value">${avg.toFixed(2)}${met.toLowerCase().includes('taxa')||met.toLowerCase().includes('cumpriment')||met.toLowerCase().includes('atras')||met.toLowerCase().includes('cancel')||met.toLowerCase().includes('coleta')||met.toLowerCase().includes('serviço')?'%':''}</div>
+        </div>
+      </div>`;
+  });
+
+  // Charts
+  const chartsEl = document.getElementById('dash-charts');
+  chartsEl.innerHTML = '';
+  Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e){} });
+  chartInstances = {};
+
+  const lojas = mp ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
+                   : [...new Set(data.map(d=>d.loja))];
+
+  metrics.forEach((met, idx) => {
+    const meta = mp ? getMeta(mp, met) : null;
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    const canvasId = 'chart-' + idx;
+    const metaLabel = meta ? ` (${meta.tipo}${meta.meta})` : '';
+    card.innerHTML = `<div class="chart-title">${met}${metaLabel}</div><div class="chart-wrap"><canvas id="${canvasId}"></canvas></div>`;
+    chartsEl.appendChild(card);
+
+    requestAnimationFrame(() => {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      const labels = lj ? [lj] : lojas;
+      const vals = labels.map(l => {
+        const rows = data.filter(d=>d.loja===l&&d.metrica===met);
+        if (!rows.length) return 0;
+        return rows.reduce((a,b)=>a+b.valor,0)/rows.length;
+      });
+      const colors = vals.map(v => {
+        if (!meta) return '#6c63ff';
+        const ok = checkStatus(v, meta);
+        return ok ? '#22c55e' : '#ef4444';
+      });
+      const datasets = [{ data: vals, backgroundColor: colors, borderRadius: 6, borderSkipped: false }];
+      if (meta) {
+        datasets.push({
+          type: 'line', data: Array(labels.length).fill(meta.meta),
+          borderColor: '#ef4444', borderDash: [5,5], borderWidth: 1.5,
+          pointRadius: 0, fill: false, label: `Meta ${meta.tipo}${meta.meta}`
+        });
+      }
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#8b90a7', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2e334720' } },
+            y: { ticks: { color: '#8b90a7', font: { size: 10 } }, grid: { color: '#2e334740' } }
+          }
+        }
+      });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DADOS
+// ═══════════════════════════════════════════════════════════════
+function renderDados() {
+  document.getElementById('d-marketplace').addEventListener('change', updateDadosLoja);
+  const mp = document.getElementById('d-marketplace').value;
+  const lj = document.getElementById('d-loja').value;
+  let data = DB.metricas;
+  if (mp) data = data.filter(d=>d.marketplace===mp);
+  if (lj) data = data.filter(d=>d.loja===lj);
+
+  const tb = document.getElementById('dados-tbody');
+  if (!data.length) { tb.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum dado encontrado.</td></tr>'; return; }
+
+  tb.innerHTML = data.map(d => {
+    const meta = getMeta(d.marketplace, d.metrica);
+    const ok = meta ? checkStatus(d.valor, meta) : null;
+    const status = ok === null ? '<span class="badge" style="background:#8b90a720;color:#8b90a7">—</span>'
+                  : ok ? '<span class="badge green">✓ OK</span>' : '<span class="badge red">✗ Fora</span>';
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${d.data}</td>
+      <td>${d.marketplace}</td><td>${d.loja}</td><td>${d.metrica}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${d.valor}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--text2)">${meta ? meta.meta : '—'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INCLUIR MÉTRICAS
+// ═══════════════════════════════════════════════════════════════
+function populateIncluirForm() {
+  document.getElementById('inc-data').valueAsDate = new Date();
+}
+
+async function salvarMetrica() {
+  const data = document.getElementById('inc-data').value;
+  const mp = document.getElementById('inc-marketplace').value;
+  const loja = document.getElementById('inc-loja').value;
+  const metrica = document.getElementById('inc-metrica').value;
+  const valor = document.getElementById('inc-valor').value;
+  if (!data||!mp||!loja||!metrica||valor==='') { showToast('Preencha todos os campos.','error'); return; }
+  showLoading(true);
+  try {
+    await sheetsAppend('metricas!A:E', [[data, mp, loja, metrica, parseFloat(valor)]]);
+    DB.metricas.push({ data, marketplace: mp, loja, metrica, valor: parseFloat(valor) });
+    showToast('Métrica salva com sucesso!', 'success');
+    document.getElementById('inc-valor').value = '';
+  } catch(e) { showToast('Erro ao salvar: ' + e.message, 'error'); }
+  showLoading(false);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG TABS
+// ═══════════════════════════════════════════════════════════════
+function renderConfigTabs() {
+  renderMetasTable();
+  renderLojasTable();
+  renderMpTable();
+  renderUsersTable();
+}
+
+// METAS TABLE
+function renderMetasTable() {
+  const tb = document.getElementById('metas-tbody');
+  const mps = DB.marketplaces;
+  tb.innerHTML = DB.metas.map((m,i) => `
+    <tr data-i="${i}">
+      <td><select class="meta-mp" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px">${mps.map(mp=>`<option ${mp===m.marketplace?'selected':''}>${mp}</option>`).join('')}</select></td>
+      <td><input type="text" value="${m.metrica}" class="meta-metrica" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:160px"/></td>
+      <td><input type="number" value="${m.meta}" class="meta-meta" step="0.01" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:80px"/></td>
+      <td><select class="meta-tipo" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px">
+        ${['<','>','='].map(t=>`<option ${t===m.tipo?'selected':''}>${t}</option>`).join('')}
+      </select></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeMeta(${i})">Remover</button></td>
+    </tr>`).join('');
+}
+
+function addMetaRow() {
+  DB.metas.push({ marketplace: DB.marketplaces[0]||'', metrica: '', meta: 0, tipo: '<' });
+  renderMetasTable();
+}
+function removeMeta(i) { DB.metas.splice(i,1); renderMetasTable(); }
+
+async function salvarMetas() {
+  // Read current values from table
+  const rows = document.querySelectorAll('#metas-tbody tr');
+  DB.metas = Array.from(rows).map(r => ({
+    marketplace: r.querySelector('.meta-mp').value,
+    metrica: r.querySelector('.meta-metrica').value,
+    meta: parseFloat(r.querySelector('.meta-meta').value)||0,
+    tipo: r.querySelector('.meta-tipo').value
+  }));
+  showLoading(true);
+  try {
+    const vals = [['marketplace','metrica','meta','tipo_comparacao'], ...DB.metas.map(m=>[m.marketplace,m.metrica,m.meta,m.tipo])];
+    await sheetsSet('metas!A1', vals);
+    showToast('Metas salvas!', 'success');
+  } catch(e) { showToast('Erro: '+e.message,'error'); }
+  showLoading(false);
+}
+
+// LOJAS TABLE
+function renderLojasTable() {
+  const tb = document.getElementById('lojas-tbody');
+  const mps = DB.marketplaces;
+  tb.innerHTML = DB.lojas.map((l,i) => `
+    <tr>
+      <td><select class="loja-mp" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px">${mps.map(mp=>`<option ${mp===l.marketplace?'selected':''}>${mp}</option>`).join('')}</select></td>
+      <td><input type="text" value="${l.nome}" class="loja-nome" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:200px"/></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeLoja(${i})">Remover</button></td>
+    </tr>`).join('');
+}
+
+function addLojaRow() { DB.lojas.push({ marketplace: DB.marketplaces[0]||'', nome: '' }); renderLojasTable(); }
+function removeLoja(i) { DB.lojas.splice(i,1); renderLojasTable(); }
+
+async function salvarLojas() {
+  const rows = document.querySelectorAll('#lojas-tbody tr');
+  DB.lojas = Array.from(rows).map(r => ({
+    marketplace: r.querySelector('.loja-mp').value,
+    nome: r.querySelector('.loja-nome').value
+  }));
+  showLoading(true);
+  try {
+    const vals = [['marketplace','nome_loja'], ...DB.lojas.map(l=>[l.marketplace,l.nome])];
+    await sheetsSet('lojas!A1', vals);
+    populateFilters();
+    showToast('Lojas salvas!', 'success');
+  } catch(e) { showToast('Erro: '+e.message,'error'); }
+  showLoading(false);
+}
+
+// MARKETPLACES TABLE
+function renderMpTable() {
+  const tb = document.getElementById('mp-tbody');
+  tb.innerHTML = DB.marketplaces.map((mp,i) => `
+    <tr>
+      <td><input type="text" value="${mp}" class="mp-name" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:220px"/></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeMp(${i})">Remover</button></td>
+    </tr>`).join('');
+}
+function addMarketplace() { DB.marketplaces.push(''); renderMpTable(); }
+function removeMp(i) { DB.marketplaces.splice(i,1); renderMpTable(); }
+
+async function salvarMarketplaces() {
+  const rows = document.querySelectorAll('#mp-tbody tr');
+  DB.marketplaces = Array.from(rows).map(r => r.querySelector('.mp-name').value).filter(Boolean);
+  showLoading(true);
+  try {
+    const vals = [['marketplace'], ...DB.marketplaces.map(m=>[m])];
+    await sheetsSet('marketplaces!A1', vals);
+    populateFilters();
+    showToast('Marketplaces salvos!', 'success');
+  } catch(e) { showToast('Erro: '+e.message,'error'); }
+  showLoading(false);
+}
+
+// USERS TABLE
+function renderUsersTable() {
+  const tb = document.getElementById('users-tbody');
+  tb.innerHTML = DB.usuarios.map((u,i) => `
+    <tr>
+      <td><input type="text" value="${u.email}" class="u-email" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:200px"/></td>
+      <td><input type="text" value="${u.senha}" class="u-senha" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-family:inherit;font-size:12px;width:140px"/></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeUser(${i})">Remover</button></td>
+    </tr>`).join('');
+}
+function addUsuario() { DB.usuarios.push({ email: '', senha: '' }); renderUsersTable(); }
+function removeUser(i) { DB.usuarios.splice(i,1); renderUsersTable(); }
+
+async function salvarUsuarios() {
+  const rows = document.querySelectorAll('#users-tbody tr');
+  DB.usuarios = Array.from(rows).map(r => ({
+    email: r.querySelector('.u-email').value,
+    senha: r.querySelector('.u-senha').value
+  }));
+  showLoading(true);
+  try {
+    const vals = [['email','senha'], ...DB.usuarios.map(u=>[u.email,u.senha])];
+    await sheetsSet('usuarios!A1', vals);
+    showToast('Usuários salvos!', 'success');
+  } catch(e) { showToast('Erro: '+e.message,'error'); }
+  showLoading(false);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ATUALIZAR BASE
+// ═══════════════════════════════════════════════════════════════
+async function atualizarBase() {
+  await loadAll();
+  renderDashboard();
+  showToast('Base atualizada!', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════════
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  showLoading(true);
+  try {
+    await loadAll();
+    const user = DB.usuarios.find(u => u.email === email && u.senha === pass);
+    if (!user) { err.style.display = 'block'; showLoading(false); return; }
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    renderDashboard();
+  } catch(e) {
+    // Fallback: allow demo login
+    const demo = [{email:'admin@zerbini.com',senha:'admin123'}];
+    const user = demo.find(u => u.email === email && u.senha === pass);
+    if (user) {
+      DB.usuarios = demo;
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      populateFilters();
+      renderDashboard();
+    } else {
+      err.style.display = 'block';
+    }
+  }
+  showLoading(false);
+}
+
+function doLogout() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value = '';
+}
+</script>
+</body>
+</html>
