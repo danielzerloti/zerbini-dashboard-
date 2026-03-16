@@ -281,6 +281,10 @@
           <div class="filter-label">Loja</div>
           <select id="d-loja"><option value="">Todas</option></select>
         </div>
+        <div class="filter-group">
+          <div class="filter-label">Métrica</div>
+          <select id="d-metrica"><option value="">Todas</option></select>
+        </div>
         <div class="filter-group" style="justify-content:flex-end;gap:8px;flex-direction:row;align-items:center">
           <button class="btn btn-primary" onclick="renderDados()">Filtrar</button>
           <button class="btn btn-ghost" id="btn-penalidade" onclick="toggleFiltroPenalidade()" title="Ver apenas lojas com penalidade">
@@ -792,6 +796,17 @@ function updateDadosLoja() {
   const sel = document.getElementById('d-loja');
   sel.innerHTML = '<option value="">Todas</option>';
   lojas.forEach(l => sel.innerHTML += `<option>${l}</option>`);
+
+  // Update metrics dropdown based on marketplace
+  const metricas = mp
+    ? [...new Set(DB.metas.filter(m=>m.marketplace===mp).map(m=>m.metrica))]
+    : [...new Set(DB.metas.map(m=>m.metrica))];
+  const msel = document.getElementById('d-metrica');
+  const prevVal = msel ? msel.value : '';
+  if (msel) {
+    msel.innerHTML = '<option value="">Todas</option>';
+    metricas.forEach(m => msel.innerHTML += `<option${m===prevVal?' selected':''}>${m}</option>`);
+  }
 }
 
 function updateIncLojas() {
@@ -970,11 +985,14 @@ function toggleFiltroPenalidade() {
 }
 function renderDados() {
   document.getElementById('d-marketplace').addEventListener('change', updateDadosLoja);
+  updateDadosLoja();
   const mp = document.getElementById('d-marketplace').value;
   const lj = document.getElementById('d-loja').value;
   let data = DB.metricas;
   if (mp) data = data.filter(d=>d.marketplace===mp);
   if (lj) data = data.filter(d=>d.loja===lj);
+  const met = document.getElementById('d-metrica') ? document.getElementById('d-metrica').value : '';
+  if (met) data = data.filter(d => d.metrica === met);
   if (filtroPenalidade) {
     var lojasComPenalidade = new Set(
       data.filter(d => d.metrica.toLowerCase().includes('penalidad') && d.valor > 0)
