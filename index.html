@@ -289,7 +289,7 @@
           <thead>
             <tr>
               <th>Data</th><th>Marketplace</th><th>Loja</th><th>Métrica</th>
-              <th>Valor</th><th>Meta</th><th>Status</th>
+              <th>Valor</th><th>Meta</th><th>Status</th><th>Status Penalidade</th><th>Motivo</th>
             </tr>
           </thead>
           <tbody id="dados-tbody"></tbody>
@@ -320,11 +320,30 @@
           </div>
           <div class="form-group">
             <label>Métrica</label>
-            <select id="inc-metrica"><option value="">Selecione</option></select>
+            <select id="inc-metrica" onchange="togglePenFields()"><option value="">Selecione</option></select>
           </div>
           <div class="form-group full">
             <label>Valor</label>
             <input type="number" id="inc-valor" step="0.01" placeholder="Ex: 2.5" />
+          </div>
+          <div class="form-group full" id="pen-fields" style="display:none;grid-column:1/-1">
+            <div style="height:1px;background:var(--border);margin:4px 0 14px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div class="form-group">
+                <label>Status da Penalidade</label>
+                <select id="inc-pen-status">
+                  <option value="">Selecione</option>
+                  <option>Ativa</option>
+                  <option>Resolvida</option>
+                  <option>Em análise</option>
+                  <option>Recorrida</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Motivo da Penalidade</label>
+                <input type="text" id="inc-pen-motivo" placeholder="Ex: Atraso de envio" />
+              </div>
+            </div>
           </div>
         </div>
         <button class="btn btn-success" style="margin-top:18px;width:100%" onclick="salvarMetrica()">Salvar no Google Sheets</button>
@@ -541,13 +560,13 @@ async function loadAll() {
   try {
     await initSheets();
     const [mRows, gRows, lRows, uRows, mpRows] = await Promise.all([
-      sheetsGet('metricas!A2:E'),
+      sheetsGet('metricas!A2:G'),
       sheetsGet('metas!A2:D'),
       sheetsGet('lojas!A2:B'),
       sheetsGet('usuarios!A2:B'),
       sheetsGet('marketplaces!A2:A')
     ]);
-    DB.metricas = mRows.map(r => ({ data: r[0]||'', marketplace: r[1]||'', loja: r[2]||'', metrica: r[3]||'', valor: parseFloat(r[4])||0 }));
+    DB.metricas = mRows.map(r => ({ data: r[0]||'', marketplace: r[1]||'', loja: r[2]||'', metrica: r[3]||'', valor: parseFloat(r[4])||0, penStatus: r[5]||'', penMotivo: r[6]||'' }));
     DB.metas = gRows.map(r => ({ marketplace: r[0]||'', metrica: r[1]||'', meta: parseFloat(r[2])||0, tipo: r[3]||'<' }));
     DB.lojas = lRows.map(r => ({ marketplace: r[0]||'', nome: r[1]||'' }));
     DB.usuarios = uRows.map(r => ({ email: r[0]||'', senha: r[1]||'' }));
@@ -776,6 +795,17 @@ function updateIncLojas() {
   const msel = document.getElementById('inc-metrica');
   msel.innerHTML = '<option value="">Selecione</option>';
   mets.forEach(m => msel.innerHTML += `<option>${m}</option>`);
+  togglePenFields();
+}
+
+function togglePenFields() {
+  const metrica = document.getElementById('inc-metrica').value.toLowerCase();
+  const show = metrica.includes('penalidad');
+  document.getElementById('pen-fields').style.display = show ? 'block' : 'none';
+  if (!show) {
+    document.getElementById('inc-pen-status').value = '';
+    document.getElementById('inc-pen-motivo').value = '';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -914,12 +944,15 @@ function renderDados() {
     const ok = meta ? checkStatus(d.valor, meta) : null;
     const status = ok === null ? '<span class="badge" style="background:#8b90a720;color:#8b90a7">—</span>'
                   : ok ? '<span class="badge green">✓ OK</span>' : '<span class="badge red">✗ Fora</span>';
+    const penBadge = d.penStatus ? `<span class="badge ${d.penStatus==='Resolvida'?'green':'red'}">${d.penStatus}</span>` : '<span style="color:var(--text2)">—</span>';
     return `<tr>
       <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${d.data}</td>
       <td>${d.marketplace}</td><td>${d.loja}</td><td>${d.metrica}</td>
       <td style="font-family:'JetBrains Mono',monospace">${d.valor}</td>
       <td style="font-family:'JetBrains Mono',monospace;color:var(--text2)">${meta ? meta.meta : '—'}</td>
       <td>${status}</td>
+      <td>${penBadge}</td>
+      <td style="color:var(--text2);font-size:12px">${d.penMotivo || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -940,6 +973,7 @@ function populateIncluirForm() {
   const mm = String(today.getMonth()+1).padStart(2,'0');
   const yyyy = today.getFullYear();
   document.getElementById('inc-data').value = dd+'/'+mm+'/'+yyyy;
+  togglePenFields();
 }
 
 async function salvarMetrica() {
@@ -949,12 +983,18 @@ async function salvarMetrica() {
   const metrica = document.getElementById('inc-metrica').value;
   const valor = document.getElementById('inc-valor').value;
   if (!data||!mp||!loja||!metrica||valor==='') { showToast('Preencha todos os campos.','error'); return; }
+  const isPen = metrica.toLowerCase().includes('penalidad');
+  const penStatus = isPen ? document.getElementById('inc-pen-status').value : '';
+  const penMotivo = isPen ? document.getElementById('inc-pen-motivo').value : '';
+  if (isPen && (!penStatus || !penMotivo)) { showToast('Preencha o status e o motivo da penalidade.','error'); return; }
   showLoading(true);
   try {
-    await sheetsAppend('metricas!A:E', [[data, mp, loja, metrica, parseFloat(valor)]]);
-    DB.metricas.push({ data, marketplace: mp, loja, metrica, valor: parseFloat(valor) });
+    await sheetsAppend('metricas!A:G', [[data, mp, loja, metrica, parseFloat(valor), penStatus, penMotivo]]);
+    DB.metricas.push({ data, marketplace: mp, loja, metrica, valor: parseFloat(valor), penStatus, penMotivo });
     showToast('Métrica salva com sucesso!', 'success');
     document.getElementById('inc-valor').value = '';
+    document.getElementById('inc-pen-status').value = '';
+    document.getElementById('inc-pen-motivo').value = '';
   } catch(e) { showToast('Erro ao salvar: ' + e.message, 'error'); }
   showLoading(false);
 }
