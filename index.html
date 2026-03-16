@@ -246,8 +246,12 @@
           </select>
         </div>
         <div class="filter-group">
-          <div class="filter-label">Data</div>
-          <select id="f-data"><option value="">Todas</option></select>
+          <div class="filter-label">Mês</div>
+          <select id="f-mes"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Dia</div>
+          <select id="f-dia"><option value="">Todos</option></select>
         </div>
         <div class="filter-group">
           <div class="filter-label">Loja</div>
@@ -687,7 +691,25 @@ function checkStatus(valor, meta) {
 // ═══════════════════════════════════════════════════════════════
 function populateFilters() {
   const mps = DB.marketplaces.length ? DB.marketplaces : [...new Set(DB.metricas.map(m=>m.marketplace))];
-  const dates = [...new Set(DB.metricas.map(m=>m.data))].sort((a,b)=>{
+  const allDates = [...new Set(DB.metricas.map(m=>m.data))];
+
+  // Extract unique months (mm/yyyy) sorted desc
+  const monthMap = {};
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  allDates.forEach(d => {
+    const parts = d.split('/');
+    if (parts.length === 3) {
+      const key = parts[1]+'/'+parts[2]; // mm/yyyy
+      if (!monthMap[key]) monthMap[key] = MONTHS[parseInt(parts[1],10)-1]+' '+parts[2];
+    }
+  });
+  const sortedMonths = Object.keys(monthMap).sort((a,b)=>{
+    const [ma,ya] = a.split('/'); const [mb,yb] = b.split('/');
+    return new Date(yb,mb-1,1) - new Date(ya,ma-1,1);
+  });
+
+  // Extract unique days sorted desc
+  const sortedDays = [...new Set(allDates)].sort((a,b)=>{
     const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
     return new Date(yb,mb-1,db) - new Date(ya,ma-1,da);
   });
@@ -703,9 +725,23 @@ function populateFilters() {
     mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
   });
 
-  const fd = document.getElementById('f-data');
-  fd.innerHTML = '<option value="">Todas</option>';
-  dates.forEach(d => fd.innerHTML += `<option>${d}</option>`);
+  const fm = document.getElementById('f-mes');
+  fm.innerHTML = '<option value="">Todos</option>';
+  sortedMonths.forEach(k => fm.innerHTML += `<option value="${k}">${monthMap[k]}</option>`);
+
+  const fd2 = document.getElementById('f-dia');
+  fd2.innerHTML = '<option value="">Todos</option>';
+  sortedDays.forEach(d => fd2.innerHTML += `<option>${d}</option>`);
+
+  // When month changes, filter the day dropdown
+  fm.onchange = () => {
+    const selMes = fm.value;
+    const filtered = selMes
+      ? sortedDays.filter(d => { const p = d.split('/'); return p[1]+'/'+p[2] === selMes; })
+      : sortedDays;
+    fd2.innerHTML = '<option value="">Todos</option>';
+    filtered.forEach(d => fd2.innerHTML += `<option>${d}</option>`);
+  };
 
   updateLojaFilter();
   updateDadosLoja();
@@ -747,14 +783,19 @@ function updateIncLojas() {
 // ═══════════════════════════════════════════════════════════════
 function renderDashboard() {
   const mp = document.getElementById('f-marketplace').value;
-  const dt = document.getElementById('f-data').value;
+  const mes = document.getElementById('f-mes').value;
+  const dia = document.getElementById('f-dia').value;
   const lj = document.getElementById('f-loja').value;
   const title = document.getElementById('dash-title');
   title.textContent = mp ? `Dashboard ${mp}` : 'Dashboard';
 
   let data = DB.metricas;
   if (mp) data = data.filter(d => d.marketplace === mp);
-  if (dt) data = data.filter(d => d.data === dt);
+  if (dia) {
+    data = data.filter(d => d.data === dia);
+  } else if (mes) {
+    data = data.filter(d => { const p = d.data.split('/'); return p[1]+'/'+p[2] === mes; });
+  }
   if (lj) data = data.filter(d => d.loja === lj);
 
   // Cards — averages per metric
