@@ -283,6 +283,10 @@
         </div>
         <div class="filter-group" style="justify-content:flex-end;gap:8px;flex-direction:row;align-items:center">
           <button class="btn btn-primary" onclick="renderDados()">Filtrar</button>
+          <button class="btn btn-ghost" id="btn-penalidade" onclick="toggleFiltroPenalidade()" title="Ver apenas lojas com penalidade">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Com Penalidade
+          </button>
           <button class="btn btn-ghost" onclick="exportarXLSX()" title="Exportar para Excel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar XLSX
@@ -948,6 +952,22 @@ function renderDashboard() {
 // ═══════════════════════════════════════════════════════════════
 //  DADOS
 // ═══════════════════════════════════════════════════════════════
+let filtroPenalidade = false;
+
+function toggleFiltroPenalidade() {
+  filtroPenalidade = !filtroPenalidade;
+  var btn = document.getElementById('btn-penalidade');
+  if (filtroPenalidade) {
+    btn.style.background = '#ef444430';
+    btn.style.borderColor = '#ef4444';
+    btn.style.color = '#ef4444';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  }
+  renderDados();
+}
 function renderDados() {
   document.getElementById('d-marketplace').addEventListener('change', updateDadosLoja);
   const mp = document.getElementById('d-marketplace').value;
@@ -955,6 +975,13 @@ function renderDados() {
   let data = DB.metricas;
   if (mp) data = data.filter(d=>d.marketplace===mp);
   if (lj) data = data.filter(d=>d.loja===lj);
+  if (filtroPenalidade) {
+    var lojasComPenalidade = new Set(
+      data.filter(d => d.metrica.toLowerCase().includes('penalidad') && d.valor > 0)
+          .map(d => d.loja)
+    );
+    data = data.filter(d => lojasComPenalidade.has(d.loja));
+  }
 
   const tb = document.getElementById('dados-tbody');
   if (!data.length) { tb.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum dado encontrado.</td></tr>'; return; }
