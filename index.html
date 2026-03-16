@@ -583,29 +583,29 @@ const DEFAULT_METAS = {
     'Penalidades': {meta:0, tipo:'='}
   },
   'TikTok': {
-    'Envios com Atraso': {meta:8, tipo:'<'},
+    'Envios com atraso': {meta:8, tipo:'<'},
     'Cancelamentos': {meta:5, tipo:'<'},
     'Taxa de Resposta': {meta:70, tipo:'>'},
     'Violações': {meta:0, tipo:'='}
   },
   'Amazon': {
-    'Índice Envios Tardios': {meta:4, tipo:'<'},
-    'Taxa Cancelamento': {meta:2.5, tipo:'<'},
-    'Índice Pedidos Problemas': {meta:1, tipo:'<'}
+    'Índice envios tardios': {meta:4, tipo:'<'},
+    'Taxa cancelamento': {meta:2.5, tipo:'<'},
+    'Índice pedidos com problemas': {meta:1, tipo:'<'}
   },
   'Mercado Livre': {
     'Reclamações': {meta:1, tipo:'<'},
     'Mediações': {meta:0.5, tipo:'<'},
     'Cancelamentos': {meta:0.5, tipo:'<'},
-    'Despachos Atrasados': {meta:6, tipo:'<'}
+    'Despachos atrasados': {meta:6, tipo:'<'}
   },
   'Magazine Luiza': {
-    'Nível de Serviço': {meta:97, tipo:'>'},
+    'Nível de serviço': {meta:97, tipo:'>'},
     'Cancelamentos': {meta:2, tipo:'<'},
     'Nota': {meta:5, tipo:'='}
   },
   'Via Varejo': {
-    'Expedição Atrasada': {meta:5, tipo:'<'},
+    'Expedição atrasada': {meta:5, tipo:'<'},
     'Reclamações': {meta:2, tipo:'<'},
     'Cancelamento': {meta:3, tipo:'<'},
     'Nota': {meta:5, tipo:'='}
@@ -657,7 +657,21 @@ function showTab(id, btn) {
 }
 
 function getMeta(marketplace, metrica) {
-  return DB.metas.find(m => m.marketplace === marketplace && m.metrica === metrica);
+  const mpLow = (marketplace||'').toLowerCase();
+  const metLow = (metrica||'').toLowerCase();
+  // Try DB first (case-insensitive)
+  const found = DB.metas.find(m =>
+    m.marketplace.toLowerCase() === mpLow && m.metrica.toLowerCase() === metLow
+  );
+  if (found) return found;
+  // Fallback to hardcoded defaults (case-insensitive)
+  const defMpKey = Object.keys(DEFAULT_METAS).find(k => k.toLowerCase() === mpLow);
+  if (defMpKey) {
+    const defMp = DEFAULT_METAS[defMpKey];
+    const metKey = Object.keys(defMp).find(k => k.toLowerCase() === metLow);
+    if (metKey) return { marketplace, metrica, meta: defMp[metKey].meta, tipo: defMp[metKey].tipo };
+  }
+  return null;
 }
 
 function checkStatus(valor, meta) {
@@ -782,7 +796,12 @@ function renderDashboard() {
                    : [...new Set(data.map(d=>d.loja))];
 
   metrics.forEach((met, idx) => {
-    const meta = mp ? getMeta(mp, met) : null;
+    // Try to get meta: prefer filtered mp, else infer from first matching data row
+    let meta = getMeta(mp, met);
+    if (!meta && !mp) {
+      const sample = data.find(d => d.metrica === met);
+      if (sample) meta = getMeta(sample.marketplace, met);
+    }
     const card = document.createElement('div');
     card.className = 'chart-card';
     const canvasId = 'chart-' + idx;
@@ -799,9 +818,13 @@ function renderDashboard() {
         if (!rows.length) return 0;
         return rows.reduce((a,b)=>a+b.valor,0)/rows.length;
       });
-      const colors = vals.map(v => {
-        if (!meta) return '#6c63ff';
-        const ok = checkStatus(v, meta);
+      const colors = vals.map((v, vi) => {
+        // Per-bar: try to get meta from the loja's marketplace
+        const lojaName = labels[vi];
+        const lojaData = data.find(d => d.loja === lojaName && d.metrica === met);
+        const barMeta = lojaData ? getMeta(lojaData.marketplace, met) : meta;
+        if (!barMeta) return '#6c63ff';
+        const ok = checkStatus(v, barMeta);
         return ok ? '#22c55e' : '#ef4444';
       });
       const datasets = [{ data: vals, backgroundColor: colors, borderRadius: 6, borderSkipped: false }];
