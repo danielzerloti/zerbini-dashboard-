@@ -280,8 +280,12 @@
           <div class="filter-label">Loja</div>
           <select id="d-loja"><option value="">Todas</option></select>
         </div>
-        <div class="filter-group" style="justify-content:flex-end">
+        <div class="filter-group" style="justify-content:flex-end;gap:8px;flex-direction:row;align-items:center">
           <button class="btn btn-primary" onclick="renderDados()">Filtrar</button>
+          <button class="btn btn-ghost" onclick="exportarXLSX()" title="Exportar para Excel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar XLSX
+          </button>
         </div>
       </div>
       <div class="table-wrap">
@@ -1173,6 +1177,80 @@ async function doLogin() {
     }
   }
   showLoading(false);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORTAR XLSX
+// ═══════════════════════════════════════════════════════════════
+function exportarXLSX() {
+  const mp = document.getElementById('d-marketplace').value;
+  const lj = document.getElementById('d-loja').value;
+  let data = DB.metricas;
+  if (mp) data = data.filter(d => d.marketplace === mp);
+  if (lj) data = data.filter(d => d.loja === lj);
+
+  if (!data.length) { showToast('Nenhum dado para exportar.', 'error'); return; }
+
+  // Build rows with all columns
+  const headers = ['Data','Marketplace','Loja','Métrica','Valor','Meta','Status','Status Penalidade','Motivo'];
+  const rows = data.map(d => {
+    const meta = getMeta(d.marketplace, d.metrica);
+    const ok = meta ? checkStatus(d.valor, meta) : null;
+    const statusTxt = ok === null ? '—' : ok ? 'OK' : 'Fora da meta';
+    return [
+      d.data, d.marketplace, d.loja, d.metrica, d.valor,
+      meta ? meta.meta : '—', statusTxt,
+      d.penStatus || '—', d.penMotivo || '—'
+    ];
+  });
+
+  // Build XML SpreadsheetML (opens natively no Excel)
+  const xmlRows = [headers, ...rows].map(row =>
+    '<Row>' + row.map(cell => {
+      const isNum = typeof cell === 'number' || (!isNaN(parseFloat(cell)) && cell !== '—' && cell !== '' && typeof cell === 'number');
+      const type = isNum ? 'Number' : 'String';
+      const safe = String(cell).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<Cell><Data ss:Type="${type}">${safe}</Data></Cell>`;
+    }).join('') + '</Row>'
+  ).join('');
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="header">
+      <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>
+      <Interior ss:Color="#1A1D27" ss:Pattern="Solid"/>
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+    </Style>
+    <Style ss:ID="ok">
+      <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+      <Font ss:Color="#166534"/>
+    </Style>
+    <Style ss:ID="fora">
+      <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
+      <Font ss:Color="#991B1B"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="Métricas">
+    <Table>${xmlRows}</Table>
+  </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const hoje = new Date();
+  const dd = String(hoje.getDate()).padStart(2,'0');
+  const mm = String(hoje.getMonth()+1).padStart(2,'0');
+  const yyyy = hoje.getFullYear();
+  a.href = url;
+  a.download = `metricas_${mp||'todos'}_${dd}-${mm}-${yyyy}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exportação concluída!', 'success');
 }
 
 function doLogout() {
