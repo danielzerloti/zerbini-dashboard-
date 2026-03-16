@@ -304,7 +304,7 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Data</label>
-            <input type="date" id="inc-data" />
+            <input type="text" id="inc-data" placeholder="dd/mm/aaaa" maxlength="10" oninput="maskDate(this)" />
           </div>
           <div class="form-group">
             <label>Marketplace</label>
@@ -687,7 +687,10 @@ function checkStatus(valor, meta) {
 // ═══════════════════════════════════════════════════════════════
 function populateFilters() {
   const mps = DB.marketplaces.length ? DB.marketplaces : [...new Set(DB.metricas.map(m=>m.marketplace))];
-  const dates = [...new Set(DB.metricas.map(m=>m.data))].sort().reverse();
+  const dates = [...new Set(DB.metricas.map(m=>m.data))].sort((a,b)=>{
+    const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
+    return new Date(yb,mb-1,db) - new Date(ya,ma-1,da);
+  });
 
   ['f-marketplace','d-marketplace'].forEach(id => {
     const sel = document.getElementById(id);
@@ -883,8 +886,19 @@ function renderDados() {
 // ═══════════════════════════════════════════════════════════════
 //  INCLUIR MÉTRICAS
 // ═══════════════════════════════════════════════════════════════
+function maskDate(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,8);
+  if (v.length >= 5) v = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if (v.length >= 3) v = v.slice(0,2)+'/'+v.slice(2);
+  el.value = v;
+}
+
 function populateIncluirForm() {
-  document.getElementById('inc-data').valueAsDate = new Date();
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2,'0');
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const yyyy = today.getFullYear();
+  document.getElementById('inc-data').value = dd+'/'+mm+'/'+yyyy;
 }
 
 async function salvarMetrica() {
