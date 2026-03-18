@@ -915,8 +915,7 @@ function renderDashboard() {
     card.className = 'chart-card';
     const canvasId = 'chart-' + idx;
     const metaLabel = meta ? ` (${meta.tipo}${meta.meta})` : '';
-    const chartH = muitasLojas ? Math.max(260, lojas.length * 22) : 220;
-    card.innerHTML = `<div class="chart-title">${met}${metaLabel}</div><div class="chart-wrap" style="height:${chartH}px"><canvas id="${canvasId}"></canvas></div>`;
+    card.innerHTML = `<div class="chart-title">${met}${metaLabel}</div><div class="chart-wrap"><canvas id="${canvasId}"></canvas></div>`;
     chartsEl.appendChild(card);
 
     requestAnimationFrame(() => {
