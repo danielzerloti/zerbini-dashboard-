@@ -898,8 +898,11 @@ function renderDashboard() {
   Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e){} });
   chartInstances = {};
 
+  // Layout em coluna única para marketplaces com muitas lojas (ex: TikTok)
   const lojas = mp ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
                    : [...new Set(data.map(d=>d.loja))];
+  const muitasLojas = lojas.length > 20;
+  chartsEl.style.gridTemplateColumns = muitasLojas ? '1fr' : '';
 
   metrics.forEach((met, idx) => {
     // Try to get meta: prefer filtered mp, else infer from first matching data row
@@ -912,7 +915,8 @@ function renderDashboard() {
     card.className = 'chart-card';
     const canvasId = 'chart-' + idx;
     const metaLabel = meta ? ` (${meta.tipo}${meta.meta})` : '';
-    card.innerHTML = `<div class="chart-title">${met}${metaLabel}</div><div class="chart-wrap"><canvas id="${canvasId}"></canvas></div>`;
+    const chartH = muitasLojas ? Math.max(260, lojas.length * 22) : 220;
+    card.innerHTML = `<div class="chart-title">${met}${metaLabel}</div><div class="chart-wrap" style="height:${chartH}px"><canvas id="${canvasId}"></canvas></div>`;
     chartsEl.appendChild(card);
 
     requestAnimationFrame(() => {
