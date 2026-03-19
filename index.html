@@ -588,7 +588,11 @@ async function loadAll() {
     DB.metricas = mRows.map(r => ({ data: r[0]||'', marketplace: r[1]||'', loja: r[2]||'', metrica: r[3]||'', valor: parseFloat(r[4])||0, penStatus: r[5]||'', penMotivo: r[6]||'' }));
     DB.metas = gRows.map(r => ({ marketplace: r[0]||'', metrica: r[1]||'', meta: parseFloat(r[2])||0, tipo: r[3]||'<' }));
     DB.lojas = lRows.map(r => ({ marketplace: r[0]||'', nome: r[1]||'' }));
-    DB.usuarios = uRows.map(r => ({ email: r[0]||'', senha: r[1]||'', perfil: r[2]||'visualizador' }));
+    DB.usuarios = uRows.map((r, idx) => ({
+      email: r[0]||'', senha: r[1]||'',
+      // Se só há um usuário ou coluna perfil ausente/vazia, assume admin
+      perfil: r[2] ? r[2] : (uRows.length === 1 ? 'admin' : 'visualizador')
+    }));
     DB.marketplaces = mpRows.map(r => r[0]).filter(Boolean);
     if (!DB.marketplaces.length) DB.marketplaces = DEFAULT_MARKETPLACES;
     populateFilters();
