@@ -550,8 +550,8 @@ async function initSheets() {
       DEFAULT_LOJAS.forEach(([mp,loja]) => lojaRows.push([mp,loja]));
       await sheetsSet('lojas!A1', lojaRows);
     }
-    const u = await sheetsGet('usuarios!A1:B1');
-    if (!u.length) await sheetsSet('usuarios!A1:B2', [['email','senha'],['admin@zerbini.com','admin123']]);
+    const u = await sheetsGet('usuarios!A1:C1');
+    if (!u.length) await sheetsSet('usuarios!A1:C2', [['email','senha','perfil'],['admin@zerbini.com','admin123','admin']]);
     const mp = await sheetsGet('marketplaces!A1:A1');
     if (!mp.length) {
       const mpRows = [['marketplace']].concat(DEFAULT_MARKETPLACES.map(m=>([m])));
@@ -582,7 +582,7 @@ async function loadAll() {
       sheetsGet('metricas!A2:G'),
       sheetsGet('metas!A2:D'),
       sheetsGet('lojas!A2:B'),
-      sheetsGet('usuarios!A2:B'),
+      sheetsGet('usuarios!A2:C'),
       sheetsGet('marketplaces!A2:A')
     ]);
     DB.metricas = mRows.map(r => ({ data: r[0]||'', marketplace: r[1]||'', loja: r[2]||'', metrica: r[3]||'', valor: parseFloat(r[4])||0, penStatus: r[5]||'', penMotivo: r[6]||'' }));
@@ -590,8 +590,7 @@ async function loadAll() {
     DB.lojas = lRows.map(r => ({ marketplace: r[0]||'', nome: r[1]||'' }));
     DB.usuarios = uRows.map((r, idx) => ({
       email: r[0]||'', senha: r[1]||'',
-      // Se só há um usuário ou coluna perfil ausente/vazia, assume admin
-      perfil: r[2] ? r[2] : (uRows.length === 1 ? 'admin' : 'visualizador')
+      perfil: (r[2]||'').trim().toLowerCase() === 'admin' ? 'admin' : 'visualizador'
     }));
     DB.marketplaces = mpRows.map(r => r[0]).filter(Boolean);
     if (!DB.marketplaces.length) DB.marketplaces = DEFAULT_MARKETPLACES;
