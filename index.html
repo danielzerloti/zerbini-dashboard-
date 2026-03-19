@@ -285,6 +285,10 @@
           <div class="filter-label">Métrica</div>
           <select id="d-metrica" onchange="renderDados()"><option value="">Todas</option></select>
         </div>
+        <div class="filter-group">
+          <div class="filter-label">Data</div>
+          <select id="d-data" onchange="renderDados()"><option value="">Todas</option></select>
+        </div>
         <div class="filter-group" style="justify-content:flex-end;gap:8px;flex-direction:row;align-items:center">
           <button class="btn btn-primary" onclick="renderDados()">Filtrar</button>
           <button class="btn btn-ghost" id="btn-penalidade" onclick="toggleFiltroPenalidade()" title="Ver apenas lojas com penalidade">
@@ -814,6 +818,21 @@ function updateDadosLoja() {
     msel.innerHTML = '<option value="">Todas</option>';
     metricas.forEach(m => msel.innerHTML += `<option${m===prevMetVal?' selected':''}>${m}</option>`);
   }
+
+  // Update date dropdown based on marketplace
+  const datasSource = mp
+    ? DB.metricas.filter(d => d.marketplace === mp).map(d => d.data)
+    : DB.metricas.map(d => d.data);
+  const datas = [...new Set(datasSource)].sort((a, b) => {
+    const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
+    return new Date(yb,mb-1,db) - new Date(ya,ma-1,da);
+  });
+  const dsel = document.getElementById('d-data');
+  const prevDtVal = dsel ? dsel.value : '';
+  if (dsel) {
+    dsel.innerHTML = '<option value="">Todas</option>';
+    datas.forEach(d => dsel.innerHTML += `<option${d===prevDtVal?' selected':''}>${d}</option>`);
+  }
 }
 
 function updateIncLojas() {
@@ -997,16 +1016,15 @@ function renderDados() {
   const mp = document.getElementById('d-marketplace').value;
   const lj = document.getElementById('d-loja').value;
   let data = DB.metricas;
-  if (mp) data = data.filter(d=>d.marketplace===mp);
-  if (lj) data = data.filter(d=>d.loja===lj);
+  if (mp) data = data.filter(d => d.marketplace === mp);
+  if (lj) data = data.filter(d => d.loja === lj);
   const met = document.getElementById('d-metrica') ? document.getElementById('d-metrica').value : '';
   if (met) data = data.filter(d => d.metrica === met);
+  const dt = document.getElementById('d-data') ? document.getElementById('d-data').value : '';
+  if (dt) data = data.filter(d => d.data === dt);
   if (filtroPenalidade) {
-    var lojasComPenalidade = new Set(
-      data.filter(d => d.metrica.toLowerCase().includes('penalidad') && d.valor > 0)
-          .map(d => d.loja)
-    );
-    data = data.filter(d => lojasComPenalidade.has(d.loja));
+    // Mostra apenas registros de penalidade com valor > 0
+    data = data.filter(d => d.metrica.toLowerCase().includes('penalidad') && d.valor > 0);
   }
 
   const tb = document.getElementById('dados-tbody');
