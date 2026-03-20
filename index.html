@@ -220,6 +220,14 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
         Configurações
       </button>
+      <button class="nav-item" onclick="showPage('relatorio',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Relatório Mensal
+      </button>
+      <button class="nav-item" onclick="showPage('relatorio',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Relatório
+      </button>
       <button class="nav-item" onclick="atualizarBase()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
         Atualizar Base
@@ -441,6 +449,36 @@
           </table>
         </div>
         <button class="btn btn-success" style="margin-top:14px" onclick="salvarUsuarios()">Salvar</button>
+      </div>
+    </div>
+
+  <!-- RELATÓRIO -->
+    <div class="page" id="page-relatorio">
+      <div class="page-header">
+        <div class="page-title">Relatório Mensal</div>
+        <div class="page-sub">Média das métricas por mês e marketplace</div>
+      </div>
+      <div class="filters">
+        <div class="filter-group">
+          <div class="filter-label">Marketplace</div>
+          <select id="r-marketplace" onchange="renderRelatorio()"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">Métrica</div>
+          <select id="r-metrica" onchange="renderRelatorio()"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group" style="justify-content:flex-end;gap:8px;flex-direction:row;align-items:center">
+          <button class="btn btn-ghost" onclick="exportarRelatorioCSV()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="relatorio-thead"></thead>
+          <tbody id="relatorio-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -701,6 +739,7 @@ function showPage(id, btn) {
   if (id === 'dados') renderDados();
   if (id === 'config') renderConfigTabs();
   if (id === 'incluir') populateIncluirForm();
+  if (id === 'relatorio') renderRelatorio();
 }
 
 function showTab(id, btn) {
@@ -764,7 +803,7 @@ function populateFilters() {
     return new Date(yb,mb-1,db) - new Date(ya,ma-1,da);
   });
 
-  ['f-marketplace','d-marketplace'].forEach(id => {
+  ['f-marketplace','d-marketplace','r-marketplace'].forEach(id => {
     const sel = document.getElementById(id);
     sel.innerHTML = '<option value="">Todos</option>';
     mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
@@ -1262,7 +1301,7 @@ function aplicarPermissoes(perfil) {
   const isAdmin = perfil === 'admin';
 
   // Itens do menu restritos a admin
-  const itensAdmin = ['incluir', 'config'];
+  const itensAdmin = ['incluir', 'config', 'relatorio'];
   document.querySelectorAll('.nav-item').forEach(btn => {
     const onclick = btn.getAttribute('onclick') || '';
     itensAdmin.forEach(item => {
@@ -1393,6 +1432,148 @@ function exportarXLSX() {
   URL.revokeObjectURL(url);
   showToast('Exportacao concluida!', 'success');
 }
+// ═══════════════════════════════════════════════════════════════
+//  RELATÓRIO MENSAL
+// ═══════════════════════════════════════════════════════════════
+function renderRelatorio() {
+  const mp  = document.getElementById('r-marketplace').value;
+  const met = document.getElementById('r-metrica').value;
+
+  // Populate marketplace filter
+  const mps = DB.marketplaces.length ? DB.marketplaces : [...new Set(DB.metricas.map(d=>d.marketplace))];
+  const rmp = document.getElementById('r-marketplace');
+  const prevMp = rmp.value;
+  rmp.innerHTML = '<option value="">Todos</option>';
+  mps.forEach(m => rmp.innerHTML += `<option${m===prevMp?' selected':''}>${m}</option>`);
+
+  // Populate metrica filter
+  const metricas = mp
+    ? [...new Set(DB.metas.filter(m=>m.marketplace===mp).map(m=>m.metrica))]
+    : [...new Set(DB.metas.map(m=>m.metrica))];
+  const rmet = document.getElementById('r-metrica');
+  const prevMet = rmet.value;
+  rmet.innerHTML = '<option value="">Todas</option>';
+  metricas.forEach(m => rmet.innerHTML += `<option${m===prevMet?' selected':''}>${m}</option>`);
+
+  // Filter data
+  let data = DB.metricas;
+  if (mp)  data = data.filter(d => d.marketplace === mp);
+  if (met) data = data.filter(d => d.metrica === met);
+
+  if (!data.length) {
+    document.getElementById('relatorio-thead').innerHTML = '';
+    document.getElementById('relatorio-tbody').innerHTML = '<tr><td colspan="99" class="empty-state">Nenhum dado encontrado.</td></tr>';
+    return;
+  }
+
+  // Build month list sorted desc
+  const meses = [...new Set(data.map(d => {
+    const p = d.data.split('/');
+    return p.length === 3 ? p[1]+'/'+p[2] : null;
+  }).filter(Boolean))].sort((a,b) => {
+    const [ma,ya] = a.split('/'); const [mb,yb] = b.split('/');
+    return new Date(ya,ma-1,1) - new Date(yb,mb-1,1);
+  });
+
+  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesLabel = m => { const [mm,yy] = m.split('/'); return MESES_NOMES[parseInt(mm)-1]+'/'+yy; };
+
+  // Group by marketplace + metrica
+  const grupos = {};
+  data.forEach(d => {
+    const p = d.data.split('/');
+    if (p.length !== 3) return;
+    const mesKey = p[1]+'/'+p[2];
+    const rowKey = d.marketplace + '||' + d.metrica;
+    if (!grupos[rowKey]) grupos[rowKey] = { marketplace: d.marketplace, metrica: d.metrica, meses: {} };
+    if (!grupos[rowKey].meses[mesKey]) grupos[rowKey].meses[mesKey] = [];
+    grupos[rowKey].meses[mesKey].push(d.valor);
+  });
+
+  // Build thead
+  const thStyle = 'padding:12px 16px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);border-bottom:1px solid var(--border);background:var(--surface2)';
+  let thead = '<tr>';
+  thead += `<th style="${thStyle}">Marketplace</th>`;
+  thead += `<th style="${thStyle}">Métrica</th>`;
+  meses.forEach(m => thead += `<th style="${thStyle};text-align:center">${mesLabel(m)}</th>`);
+  thead += '</tr>';
+  document.getElementById('relatorio-thead').innerHTML = thead;
+
+  // Build tbody
+  const tdBase = 'padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px';
+  let tbody = '';
+  const rowKeys = Object.keys(grupos).sort();
+  rowKeys.forEach(key => {
+    const g = grupos[key];
+    tbody += '<tr>';
+    tbody += `<td style="${tdBase}">${g.marketplace}</td>`;
+    tbody += `<td style="${tdBase}">${g.metrica}</td>`;
+    meses.forEach(m => {
+      const vals = g.meses[m] || [];
+      if (!vals.length) { tbody += `<td style="${tdBase};text-align:center;color:var(--text2)">—</td>`; return; }
+      const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+      const avgRnd = Math.round(avg*100)/100;
+      const meta = getMeta(g.marketplace, g.metrica);
+      const ok = meta ? checkStatus(avgRnd, meta) : null;
+      const color = ok === null ? 'var(--text)' : ok ? 'var(--green)' : 'var(--red)';
+      tbody += `<td style="${tdBase};text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:${color}">${String(avgRnd).replace('.',',')}</td>`;
+    });
+    tbody += '</tr>';
+  });
+  document.getElementById('relatorio-tbody').innerHTML = tbody;
+}
+
+function exportarRelatorioCSV() {
+  const mp  = document.getElementById('r-marketplace').value;
+  const met = document.getElementById('r-metrica').value;
+  let data = DB.metricas;
+  if (mp)  data = data.filter(d => d.marketplace === mp);
+  if (met) data = data.filter(d => d.metrica === met);
+  if (!data.length) { showToast('Nenhum dado para exportar.', 'error'); return; }
+
+  const meses = [...new Set(data.map(d => {
+    const p = d.data.split('/'); return p.length === 3 ? p[1]+'/'+p[2] : null;
+  }).filter(Boolean))].sort((a,b) => {
+    const [ma,ya] = a.split('/'); const [mb,yb] = b.split('/');
+    return new Date(ya,ma-1,1) - new Date(yb,mb-1,1);
+  });
+  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesLabel = m => { const [mm,yy] = m.split('/'); return MESES_NOMES[parseInt(mm)-1]+'/'+yy; };
+
+  const grupos = {};
+  data.forEach(d => {
+    const p = d.data.split('/'); if (p.length !== 3) return;
+    const mesKey = p[1]+'/'+p[2];
+    const rowKey = d.marketplace+'||'+d.metrica;
+    if (!grupos[rowKey]) grupos[rowKey] = { marketplace: d.marketplace, metrica: d.metrica, meses: {} };
+    if (!grupos[rowKey].meses[mesKey]) grupos[rowKey].meses[mesKey] = [];
+    grupos[rowKey].meses[mesKey].push(d.valor);
+  });
+
+  const esc = v => { const s = String(v); return s.includes(';')||s.includes('"') ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const headers = ['Marketplace','Métrica',...meses.map(mesLabel)];
+  const rows = Object.keys(grupos).sort().map(key => {
+    const g = grupos[key];
+    return [g.marketplace, g.metrica, ...meses.map(m => {
+      const vals = g.meses[m]||[];
+      if (!vals.length) return '—';
+      const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+      return String(Math.round(avg*100)/100).replace('.',',');
+    })];
+  });
+
+  var csvLines2=[];var allRows2=[headers].concat(rows);for(var ii=0;ii<allRows2.length;ii++){csvLines2.push(allRows2[ii].map(esc).join(';'));}var csv=csvLines2.join('\r\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const hoje = new Date();
+  a.href = url;
+  a.download = 'relatorio_mensal_'+(mp||'todos')+'_'+String(hoje.getDate()).padStart(2,'0')+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+hoje.getFullYear()+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exportação concluída!','success');
+}
+
 function doLogout() {
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-page').style.display = 'flex';
