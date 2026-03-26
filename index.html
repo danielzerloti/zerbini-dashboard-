@@ -1548,15 +1548,23 @@ function exportarRelatorioCSV() {
   });
 
   const esc = v => { const s = String(v); return s.includes(';')||s.includes('"') ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const headers = ['Marketplace','Métrica',...meses.map(mesLabel)];
+  // Headers: para cada mês, duas colunas — Valor e Status
+  var headers = ['Marketplace','Métrica'];
+  meses.forEach(function(m) { headers.push(mesLabel(m)); headers.push(mesLabel(m)+' Status'); });
   const rows = Object.keys(grupos).sort().map(key => {
     const g = grupos[key];
-    return [g.marketplace, g.metrica, ...meses.map(m => {
+    var row = [g.marketplace, g.metrica];
+    meses.forEach(function(m) {
       const vals = g.meses[m]||[];
-      if (!vals.length) return '—';
+      if (!vals.length) { row.push('—'); row.push('—'); return; }
       const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
-      return String(Math.round(avg*100)/100).replace('.',',');
-    })];
+      const avgRnd = Math.round(avg*100)/100;
+      const meta = getMeta(g.marketplace, g.metrica);
+      const ok = meta ? checkStatus(avgRnd, meta) : null;
+      row.push(String(avgRnd).replace('.',','));
+      row.push(ok === null ? '—' : ok ? '✓ OK' : '✗ Fora da meta');
+    });
+    return row;
   });
 
   var csvLines2=[];var allRows2=[headers].concat(rows);for(var ii=0;ii<allRows2.length;ii++){csvLines2.push(allRows2[ii].map(esc).join(';'));}var csv=csvLines2.join('\r\n');
