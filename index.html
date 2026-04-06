@@ -452,10 +452,17 @@
   <!-- RELATÓRIO -->
     <div class="page" id="page-relatorio">
       <div class="page-header">
-        <div class="page-title">Relatório Mensal</div>
-        <div class="page-sub">Média das métricas por mês e marketplace</div>
+        <div class="page-title" id="relatorio-title">Relatório Mensal</div>
+        <div class="page-sub" id="relatorio-sub">Média das métricas por mês e marketplace</div>
       </div>
       <div class="filters">
+        <div class="filter-group">
+          <div class="filter-label">Período</div>
+          <div class="tabs" style="margin:0">
+            <button class="tab active" id="tab-mensal" onclick="setPeríodo('mensal')">Mensal</button>
+            <button class="tab" id="tab-semanal" onclick="setPeríodo('semanal')">Semanal</button>
+          </div>
+        </div>
         <div class="filter-group">
           <div class="filter-label">Marketplace</div>
           <select id="r-marketplace" onchange="renderRelatorio()"><option value="">Todos</option></select>
@@ -1430,8 +1437,40 @@ function exportarXLSX() {
   showToast('Exportacao concluida!', 'success');
 }
 // ═══════════════════════════════════════════════════════════════
-//  RELATÓRIO MENSAL
+//  RELATÓRIO MENSAL / SEMANAL
 // ═══════════════════════════════════════════════════════════════
+var periodoRelatorio = 'mensal';
+
+function setPeríodo(p) {
+  periodoRelatorio = p;
+  document.getElementById('tab-mensal').className = 'tab' + (p==='mensal'?' active':'');
+  document.getElementById('tab-semanal').className = 'tab' + (p==='semanal'?' active':'');
+  document.getElementById('relatorio-title').textContent = p==='mensal' ? 'Relatório Mensal' : 'Relatório Semanal';
+  document.getElementById('relatorio-sub').textContent = p==='mensal'
+    ? 'Média das métricas por mês e marketplace'
+    : 'Média das métricas por semana e marketplace';
+  renderRelatorio();
+}
+
+function getSemanaLabel(dateStr) {
+  // dateStr = dd/mm/yyyy
+  const p = dateStr.split('/');
+  if (p.length !== 3) return null;
+  const d = new Date(p[2], p[1]-1, p[0]);
+  // ISO week: Monday-based
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((d - jan1) / 86400000) + 1;
+  const week = Math.ceil((dayOfYear + jan1.getDay()) / 7);
+  return 'S' + String(week).padStart(2,'0') + '/' + p[2];
+}
+
+function getSemanaSort(label) {
+  // label = S12/2026 → sortable
+  const m = label.match(/S(\d+)\/(\d+)/);
+  if (!m) return 0;
+  return parseInt(m[2]) * 100 + parseInt(m[1]);
+}
+
 function renderRelatorio() {
   const mp  = document.getElementById('r-marketplace').value;
   const met = document.getElementById('r-metrica').value;
@@ -1463,29 +1502,39 @@ function renderRelatorio() {
     return;
   }
 
-  // Build month list sorted desc
-  const meses = [...new Set(data.map(d => {
-    const p = d.data.split('/');
+  const isSemanal = periodoRelatorio === 'semanal';
+  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  // Build period key per data row
+  const getPeriodKey = dateStr => {
+    if (isSemanal) return getSemanaLabel(dateStr);
+    const p = dateStr.split('/');
     return p.length === 3 ? p[1]+'/'+p[2] : null;
-  }).filter(Boolean))].sort((a,b) => {
+  };
+  const periodLabel = k => {
+    if (isSemanal) return k; // ex: S12/2026
+    const [mm,yy] = k.split('/'); return MESES_NOMES[parseInt(mm)-1]+'/'+yy;
+  };
+  const periodSort = (a,b) => {
+    if (isSemanal) return getSemanaSort(a) - getSemanaSort(b);
     const [ma,ya] = a.split('/'); const [mb,yb] = b.split('/');
     return new Date(ya,ma-1,1) - new Date(yb,mb-1,1);
-  });
-
-  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mesLabel = m => { const [mm,yy] = m.split('/'); return MESES_NOMES[parseInt(mm)-1]+'/'+yy; };
+  };
 
   // Group by marketplace + metrica
   const grupos = {};
   data.forEach(d => {
-    const p = d.data.split('/');
-    if (p.length !== 3) return;
-    const mesKey = p[1]+'/'+p[2];
+    const periodKey = getPeriodKey(d.data);
+    if (!periodKey) return;
     const rowKey = d.marketplace + '||' + d.metrica;
     if (!grupos[rowKey]) grupos[rowKey] = { marketplace: d.marketplace, metrica: d.metrica, meses: {} };
-    if (!grupos[rowKey].meses[mesKey]) grupos[rowKey].meses[mesKey] = [];
-    grupos[rowKey].meses[mesKey].push(d.valor);
+    if (!grupos[rowKey].meses[periodKey]) grupos[rowKey].meses[periodKey] = [];
+    grupos[rowKey].meses[periodKey].push(d.valor);
   });
+
+  // Build period list sorted
+  const meses = [...new Set(data.map(d => getPeriodKey(d.data)).filter(Boolean))].sort(periodSort);
+  const mesLabel = periodLabel;
 
   // Build thead
   const thStyle = 'padding:12px 16px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);border-bottom:1px solid var(--border);background:var(--surface2)';
@@ -1528,24 +1577,34 @@ function exportarRelatorioCSV() {
   if (met) data = data.filter(d => d.metrica === met);
   if (!data.length) { showToast('Nenhum dado para exportar.', 'error'); return; }
 
-  const meses = [...new Set(data.map(d => {
-    const p = d.data.split('/'); return p.length === 3 ? p[1]+'/'+p[2] : null;
-  }).filter(Boolean))].sort((a,b) => {
+  const isSemanalExp = periodoRelatorio === 'semanal';
+  const MESES_NOMES_EXP = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const getPeriodKeyExp = dateStr => {
+    if (isSemanalExp) return getSemanaLabel(dateStr);
+    const p = dateStr.split('/'); return p.length === 3 ? p[1]+'/'+p[2] : null;
+  };
+  const periodLabelExp = k => {
+    if (isSemanalExp) return k;
+    const [mm,yy] = k.split('/'); return MESES_NOMES_EXP[parseInt(mm)-1]+'/'+yy;
+  };
+  const periodSortExp = (a,b) => {
+    if (isSemanalExp) return getSemanaSort(a) - getSemanaSort(b);
     const [ma,ya] = a.split('/'); const [mb,yb] = b.split('/');
     return new Date(ya,ma-1,1) - new Date(yb,mb-1,1);
-  });
-  const MESES_NOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mesLabel = m => { const [mm,yy] = m.split('/'); return MESES_NOMES[parseInt(mm)-1]+'/'+yy; };
+  };
 
   const grupos = {};
   data.forEach(d => {
-    const p = d.data.split('/'); if (p.length !== 3) return;
-    const mesKey = p[1]+'/'+p[2];
+    const periodKey = getPeriodKeyExp(d.data);
+    if (!periodKey) return;
     const rowKey = d.marketplace+'||'+d.metrica;
     if (!grupos[rowKey]) grupos[rowKey] = { marketplace: d.marketplace, metrica: d.metrica, meses: {} };
-    if (!grupos[rowKey].meses[mesKey]) grupos[rowKey].meses[mesKey] = [];
-    grupos[rowKey].meses[mesKey].push(d.valor);
+    if (!grupos[rowKey].meses[periodKey]) grupos[rowKey].meses[periodKey] = [];
+    grupos[rowKey].meses[periodKey].push(d.valor);
   });
+
+  const meses = [...new Set(data.map(d => getPeriodKeyExp(d.data)).filter(Boolean))].sort(periodSortExp);
+  const mesLabel = periodLabelExp;
 
   const esc = v => { const s = String(v); return s.includes(';')||s.includes('"') ? '"'+s.replace(/"/g,'""')+'"' : s; };
   // Headers: para cada mês, duas colunas — Valor e Status
