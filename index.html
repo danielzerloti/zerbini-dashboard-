@@ -251,7 +251,6 @@
         <div class="filter-group">
           <div class="filter-label">Marketplace</div>
           <select id="f-marketplace" onchange="updateLojaFilter()">
-            <option value="">Todos</option>
           </select>
         </div>
         <div class="filter-group">
@@ -809,8 +808,14 @@ function populateFilters() {
 
   ['f-marketplace','d-marketplace','r-marketplace'].forEach(id => {
     const sel = document.getElementById(id);
-    sel.innerHTML = '<option value="">Todos</option>';
-    mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
+    if (id === 'f-marketplace') {
+      // Dashboard: sem "Todos" — obriga seleção de marketplace
+      sel.innerHTML = '';
+      mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
+    } else {
+      sel.innerHTML = '<option value="">Todos</option>';
+      mps.forEach(mp => sel.innerHTML += `<option>${mp}</option>`);
+    }
   });
   ['inc-marketplace'].forEach(id => {
     const sel = document.getElementById(id);
@@ -842,11 +847,14 @@ function populateFilters() {
 
 function updateLojaFilter() {
   const mp = document.getElementById('f-marketplace').value;
-  const lojas = mp ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
-                   : [...new Set(DB.lojas.map(l=>l.nome))];
+  const lojas = mp
+    ? DB.lojas.filter(l=>l.marketplace===mp).map(l=>l.nome)
+    : [...new Set(DB.lojas.map(l=>l.nome))];
   const sel = document.getElementById('f-loja');
   sel.innerHTML = '<option value="">Todas</option>';
   lojas.forEach(l => sel.innerHTML += `<option>${l}</option>`);
+  // Auto-render when marketplace changes
+  renderDashboard();
 }
 
 function updateDadosLoja() {
