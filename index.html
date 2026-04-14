@@ -1313,7 +1313,7 @@ function aplicarPermissoes(perfil) {
   const isAdmin = perfil === 'admin';
 
   // Itens do menu restritos a admin
-  const itensAdmin = ['incluir', 'config', 'relatorio'];
+  const itensAdmin = ['incluir', 'config'];
   document.querySelectorAll('.nav-item').forEach(btn => {
     const onclick = btn.getAttribute('onclick') || '';
     itensAdmin.forEach(item => {
